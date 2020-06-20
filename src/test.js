@@ -11,8 +11,3 @@
 		version: `0.0.1`
   };
   
-  //on game start, print out everyone on blue team, and everyone on red team
-  room.onGameStart = () => {
-	var players = room.getPlayerList();
-	players.forEach (element => sendAnnouncement(element.name);
-  }
