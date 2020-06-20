@@ -15,4 +15,4 @@
   room.onGameStart = () => {
 	var players = room.getPlayerList();
 	players.forEach (element => sendAnnouncement(element.name);
-  };
+  }
