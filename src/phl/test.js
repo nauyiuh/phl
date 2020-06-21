@@ -13,6 +13,6 @@
   
  room.onGameStart = () => {
 	var players = room.getPlayerList();
-	sendAnnouncement("Testing text");
-	players.forEach (element => sendAnnouncement(element.name);
+	room.sendAnnouncement("Testing text");
+	players.forEach (element => room.sendAnnouncement(element.name);
   };
