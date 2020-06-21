@@ -11,13 +11,21 @@
 		version: `0.0.1`
   };
   
- room.onGameStart = () => {
-	//var players = room.getPlayerList();
-	room.sendAnnouncement('Game Started');
-	//players.forEach (element => room.sendChat(element.name);
+let blueTeamStreak = 0;
+let redTeamStreak = 0;
+
+function onTeamVictory(scores) {
+  if (scores.red > scores.blue) {
+    blueTeamStreak = 0;
+    redTeamStreak++;
+    room.sendAnnouncement(`Red team has won ${redTeamStreak} games in a row!`, null, 0xE56E56);
+  } else {
+    redTeamStreak = 0;
+    blueTeamStreak++;
+    room.sendAnnouncement(`Blue team has won ${blueTeamStreak} games in a row!`, null, 0x5689E5);
   }
-  
-  room.onPlayerJoin = () => {
-	  room.sendAnnouncement('player joined');
-  }
-  
+}
+
+room.onRoomLink = function onRoomLink() {
+  room.onTeamVictory = onTeamVictory;
+}
