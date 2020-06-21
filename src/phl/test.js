@@ -9,6 +9,8 @@
 		name: `phl/test`,
 		author: `hk`,
 		version: `0.0.1`
+		config: {},
+		dependencies: [`sav/roles`]
   };
   
 let blueTeamStreak = 0;
