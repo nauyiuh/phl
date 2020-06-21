@@ -12,7 +12,7 @@
 		config: {},
   };
   
-// If there are no admins left in the room give admin to one of the remaining players.
+  // If there are no admins left in the room give admin to one of the remaining players.
 function updateAdmins() { 
   // Get all players except the host (id = 0 is always the host)
   var players = room.getPlayerList().filter((player) => player.id != 0 );
