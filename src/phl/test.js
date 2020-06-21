@@ -16,3 +16,8 @@
 	room.sendAnnouncement('Game Started');
 	//players.forEach (element => room.sendChat(element.name);
   }
+  
+  room.onPlayerJoin = () => {
+	  room.sendAnnouncement('player joined');
+  }
+  
