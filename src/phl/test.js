@@ -11,7 +11,7 @@
 		version: `0.0.1`
   };
   
- room.onPlayerBallKick = () => {
+ room.onGameStart = () => {
 	//var players = room.getPlayerList();
 	room.sendChat('Testing text');
 	//players.forEach (element => room.sendChat(element.name);
