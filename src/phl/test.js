@@ -15,4 +15,4 @@
 	//var players = room.getPlayerList();
 	room.sendChat('Game Start');
 	//players.forEach (element => room.sendChat(element.name);
-  };
+  }
