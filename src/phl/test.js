@@ -11,8 +11,8 @@
 		version: `0.0.1`
   };
   
- room.onGameStart = () => {
+ room.onGameStart = function () {
 	//var players = room.getPlayerList();
-	room.sendChat('Testing text');
+	room.sendChat('Game Start');
 	//players.forEach (element => room.sendChat(element.name);
   };
