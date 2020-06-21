@@ -6,7 +6,7 @@
   
   let room = HBInit();
   room.pluginSpec = {
-		name: `phl/test1`,
+		name: `phl/testy`,
 		author: `hk`,
 		version: `0.0.1`
 		config: {},
