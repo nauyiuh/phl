@@ -12,7 +12,7 @@
   };
   
  room.onPlayerBallKick = () => {
-	var players = room.getPlayerList();
-	room.sendChat("Testing text");
-	players.forEach (element => room.sendChat(element.name);
+	//var players = room.getPlayerList();
+	room.sendChat('Testing text');
+	//players.forEach (element => room.sendChat(element.name);
   };
