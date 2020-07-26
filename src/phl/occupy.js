@@ -26,6 +26,7 @@ function occupancyUpdate() {
 }
 
 function sendMatchData(userName, content) {
+	content.formtype = 'occupy'
 	var xhr = new XMLHttpRequest();
 	var webhook_url = room.getConfig().url;
 	xhr.open('POST', webhook_url, true);

@@ -73,6 +73,7 @@ function onRestoreHandler(data) {
 
 
 function sendWebHook(username, content) {
+    content.formtype = "abuse";
     var xhr = new XMLHttpRequest();
     var webhook_url = room.getConfig().url;
     xhr.open('POST', webhook_url, true);

@@ -1,4 +1,8 @@
-﻿var room = HBInit();
+﻿//Plugin sends win/lose data to a discord webhook
+//URL parameter should be your discord webhook URL
+//location parameter is if you want to discern between different rooms
+//you can set your own map and half parameters, the default is Big Easy 7 Minute Halves
+var room = HBInit();
 
 room.pluginSpec = {
 	name: 'hk/ladder',
@@ -7,20 +11,28 @@ room.pluginSpec = {
 	config: {
 		url: "",
 		location: ""
-    },
+	},
 	dependencies: [
 		'sav/commands'
 	]
 };
 
-var matchStatus = false;
-var confirmBlue = false;
-var confirmRed = false;
+
+
 var gameData = {};
-var half = 0;
-var overtimeRed;
-var forfeit = false;
-var colors = { red: "0xff0000", gold: "0xffdc72", blue: "0X87CEFA"};
+var colors = {
+	red: "0xff0000",
+	gold: "0xffdc72",
+	blue: "0X87CEFA"
+};
+var match = {
+	status: false,
+	confirmRed: false,
+	confirmBlue: false,
+	half: 0,
+	overtimeRed: null,
+	forfeit: false,
+};
 
 function sendMatchData(userName, content) {
 	var location = room.getConfig().location;
@@ -42,14 +54,19 @@ function sendMatchData(userName, content) {
 	xhr.send(data);
 }
 
-room.onCommand_help = (player, args) => {
+room.onCommand0_help = (player, args) => {
 	var message1 = `type !gs TeamOneCode TeamTwoCode to initiate a match between two teams`
 	var message2 = `type !confirm to confirm the match once teams have been set`
-	var message3 = `type !forfeit during the game to forfeit the match`
+	var message3 = `type !ready to continue a game once half is over and teams are set`
+	var message4 = `type !forfeit during the game to forfeit the match`
+	var message5 = `type !cancel to cancel a match in progress if the room breaks or incorrect code entry`
 
 	room.sendAnnouncement(message1, player.id, colors.gold)
 	room.sendAnnouncement(message2, player.id, colors.gold)
 	room.sendAnnouncement(message3, player.id, colors.gold)
+	room.sendAnnouncement(message4, player.id, colors.gold)
+	room.sendAnnouncement(message5, player.id, colors.gold)
+
 	return false;
 }
 
@@ -59,55 +76,30 @@ room.onPlayerJoin = (player) => {
 }
 
 room.onTeamGoal = (team) => {
-	if (matchStatus == true) {
-		if (half == 1) {
-			if (team == 1) {
-				var message = `🚨${gameData.TeamOne} scores!🚨`;
-				room.sendAnnouncement(message, null, colors.gold)
-				gameData.TeamOneScore += 1;
-			}
-			if (team == 2) {
-				var message = `🚨${gameData.TeamTwo} scores!🚨`;
-				room.sendAnnouncement(message, null, colors.gold)
-				gameData.TeamTwoScore += 1;
-			}
+
+	if (match.status == true) {
+		if ((match.half == team) || (team == match.overtimeRed)) {
+			var message = `🚨${gameData.TeamOne} scores!🚨`;
+			room.sendAnnouncement(message, null, colors.gold)
+			gameData.TeamOneScore += 1;
+		} else {
+			var message = `🚨${gameData.TeamTwo} scores!🚨`;
+			room.sendAnnouncement(message, null, colors.gold)
+			gameData.TeamTwoScore += 1;
 		}
-		if (half == 2) {
-			if (team == 1) {
-				var message = `🚨${gameData.TeamTwo} scores!🚨`;
-				room.sendAnnouncement(message, null, colors.gold)
-				gameData.TeamTwoScore += 1;
-			}
-			if (team == 2) {
-				var message = `🚨${gameData.TeamOne} scores!🚨`;
-				room.sendAnnouncement(message, null, colors.gold)
-				gameData.TeamOneScore += 1;
-			}
-		}
-		if (half == 3) {
-			if (team == overtimeRed) {
-				var message = `🚨${gameData.TeamOne} scores!🚨`;
-				room.sendAnnouncement(message, null, colors.gold)
-				gameData.TeamOneScore += 1;
-			}
-			if (team !== overtimeRed) {
-				var message = `🚨${gameData.TeamTwo} scores!🚨`;
-				room.sendAnnouncement(message, null, colors.gold)
-				gameData.TeamTwoScore += 1;
-			}
-		}
-		var message = `${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}`
-		room.sendAnnouncement(message, null, colors.gold);
 	}
+	var message = `${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}`
+	room.sendAnnouncement(message, null, colors.gold);
 }
+
 
 room.onGameStop = (player) => {
 	//if a game is manually stopped, game is counted as cancelled
-	if (matchStatus == true && player.id !== 0) {
+	if (match.status == true && player.id !== 0) {
 		gameData.cancel = player.name
 		gameCancelled();
 		return false;
-    }
+	}
 }
 
 room.onTeamVictory = () => {
@@ -115,12 +107,11 @@ room.onTeamVictory = () => {
 	halfHandler();
 }
 
-
 function halfHandler() {
-	if (matchStatus == true && half == 1) {
+	if (match.status == true && match.half == 1) {
 		endFirstHalf();
 	}
-	if (matchStatus == true && half == 2) {
+	if (match.status == true && match.half == 2) {
 		if (gameData.TeamOneScore > gameData.TeamTwoScore) {
 			teamOneVictory();
 		} else if (gameData.TeamOneScore < gameData.TeamTwoScore) {
@@ -129,7 +120,7 @@ function halfHandler() {
 			endSecondHalf();
 		}
 	}
-	if (matchStatus == true && half == 3) {
+	if (match.status == true && match.half == 3) {
 		if (gameData.TeamOneScore > gameData.TeamTwoScore) {
 			teamOneVictory();
 		} else if (gameData.TeamOneScore < gameData.TeamTwoScore) {
@@ -138,11 +129,11 @@ function halfHandler() {
 	}
 }
 
-
 function teamOneVictory() {
 	var message = `✨${gameData.TeamOne} victory!✨  Final score ${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}`;
 	room.sendAnnouncement(message, null, colors.gold);
 	gameData.matchResult = 1;
+	gameData.formtype = "completed-match";
 	sendMatchData("Match Reporter", gameData);
 	clearMatch();
 }
@@ -151,24 +142,22 @@ function teamTwoVictory() {
 	var message = `✨${gameData.TeamTwo} victory!✨  Final score: ${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}`
 	room.sendAnnouncement(message, null, colors.gold);
 	gameData.matchResult = 0;
+	gameData.formtype = "completed-match";
 	sendMatchData("Match Reporter", gameData);
 	clearMatch();
 }
 
 function gameCancelled() {
-	var message = `Match between ${gameData.TeamOne} and ${gameData.TeamTwo} cancelled by ${gameData.cancel}.  For manual report, please submit replay and refer to room name and approximate report time`
+	var message = `For manual report, please contact staff with replay and reference the room name & approximate time of game.`
 	room.sendAnnouncement(message, null, colors.gold);
 	gameData.matchResult = 999;
+	gameData.formtype = "cancelled-match";
 	sendMatchData("Match Cancelled", gameData);
 	clearMatch();
 }
 
-
-
-
 room.onCommand_gs = (player, args) => {
-
-	if (matchStatus !== false) {
+	if (match.status !== false) {
 		var message = `There is a game pending confirmation or in progress`;
 		room.sendAnnouncement(message, player.id, colors.red);
 		return false;
@@ -182,12 +171,15 @@ room.onCommand_gs = (player, args) => {
 	var teamOne = args[0];
 	var teamTwo = args[1];
 
-	var message = `${player.name} has initiated a match between ${teamOne} and ${teamTwo}.  ${teamOne} starts on red side.  Both teams !confirm to start`
+	var message = `${player.name} has initiated a match between ${teamOne} and ${teamTwo}.  ${teamOne} starts on red side.`
+	var message2 = `Both teams must !confirm to start. If team codes are incorrect, !cancel the match and initiate a new match`
 	room.sendAnnouncement(message, null, colors.gold, "bold");
+	room.sendAnnouncement(message2, null, colors.gold, "bold");
 
-	matchStatus = "pending";
-	confirmRed = false;
-	confirmBlue = false;
+	match.status = 'pending';
+	match.confirmRed = false;
+	match.confirmBlue = false;
+	match.half = 0;
 
 	gameData.matchResult = 0;
 	gameData.TeamOne = teamOne;
@@ -198,36 +190,113 @@ room.onCommand_gs = (player, args) => {
 	return false
 }
 
-room.onCommand_confirm = (player) => {
-	if (matchStatus == "pending") {
-		if (player.team == 0) {
-			var message = `Can only confirm from red or blue`
-			room.sendAnnouncement(message, player.id, 0xff0000);
-		}
-		if (player.team == 1 && confirmRed == false) {
-			var message = `${player.name} has confirmed for red side`
-			room.sendAnnouncement(message, null, colors.red, "bold");
-			confirmRed = true;
-		}
-		if (player.team == 2 && confirmBlue == false) {
-			var message = `${player.name} has confirmed for blue side`
-			room.sendAnnouncement(message, null, colors.blue, "bold");
-			confirmBlue = true;
-		}
-	}
-	if (matchStatus !== "pending") {
-		var message = `No match pending confirmation.`;
+room.onCommand0_cancel = (player) => {
+	//refer user to cancel confirm
+	if (match.status) {
+		var message = `WARNING: cancelling a match does not send a match record to database and should only be used if the room is stuck or for incorrect code entries.`
+		var message2 = `To cancel match, type !cancel confirm`
 		room.sendAnnouncement(message, player.id, colors.red);
+		room.sendAnnouncement(message2, player.id, colors.red);
+	}
+		return false;
+
+}
+
+room.onCommand_cancel_confirm = (player) => {
+	//if game hasn't started, cancel match without sending data
+	//if game has started, cancel match with data
+	if (match.status == 'pending' && half == 0) {
+		var message = `Match has been cancelled by ${player.name}.`
+		room.sendAnnouncement(message, null, colors.gold, "bold");
+		clearMatch();
+		return false;
+	} else if (match.status) {
+		var message = `Match has been cancelled by ${player.name}. No match record will be sent to database.`
+		room.sendAnnouncement(message, null, colors.gold, "bold");
+		room.stopGame();
+		gameCancelled();
+		return false;
+    }
+}
+
+//confirm command without secret code
+room.onCommand0_confirm = (player) => {
+
+	room.sendAnnouncement(`${match.status}, ${player.team}`)
+
+	if (match.status == 'pending' && player.team > 0) {
+		var message = `Please confirm using your teams secret code. !confirm SecretCode`
+		room.sendAnnouncement(message, player.id, colors.red)
+		return false;
+	} else if (match.status == 'pending' && player.team == 0) {
+		var message = `Can only confirm from red or blue`
+		room.sendAnnouncement(message, player.id, colors.red)
+		return false;
+	} else {
+		var message = `No match pending confirmation.`
+		room.sendAnnouncement(message, player.id, colors.red)
 		return false;
 	}
-	if (confirmRed == true && confirmBlue == true) {
-		matchStatus = true;
+}
+
+//confirm command with argument
+room.onCommand1_confirm = (player, args) => {
+	if (match.status == 'pending' && player.team == 0) {
+		var message = `Can only confirm from red or blue`
+		room.sendAnnouncement(message, player.id, colors.red)
+		return false;
+	} else if (player.team == 1 && match.confirmRed == false && half == 0 && match.status == 'pending') {
+		match.confirmRed = true
+		gameData.TeamOneSecret = args[0]
+		var message = `${player.name} has confirmed for red side`
+		var message2 = `You entered ${args[0]} as your secret code.  If this is incorrect, !cancel the match and try again.`
+		room.sendAnnouncement(message, null, colors.red, "bold");
+		room.sendAnnouncement(message2, player.id, colors.gold)
+	} else if (player.team == 2 && match.confirmBlue == false && half == 0 && match.status == 'pending') {
+		match.confirmBlue = true
+		gameData.TeamTwoSecret = args[0]
+		var message = `${player.name} has confirmed for blue side`
+		var message2 = `You entered ${args[0]} as your secret code.  If this is incorrect, !cancel the match and try again.`
+		room.sendAnnouncement(message, null, colors.blue, "bold");
+		room.sendAnnouncement(message2, player.id, colors.gold)
+	} else {
+		var message = "No match pending confirmation"
+		room.sendAnnouncement(message, player.id, colors.red)
+		return false;
+	}
+	if (match.confirmRed == true && match.confirmBlue == true) {
+		match.status = true;
+		matchHandler();
+	}
+	return false;
+}
+
+//READY, it's confirm but in between halves
+room.onCommand0_ready = (player) => {
+	if (player.team == 1 && match.confirmRed == false && match.status == 'pending') {
+		match.confirmRed = true
+		var message = `${player.name} has readied for red side`
+		room.sendAnnouncement(message, null, colors.red, "bold")
+	} else if (player.team == 2 && match.confirmBlue == false && match.status == 'pending') {
+		match.confirmBlue = true
+		var message = `${player.name} has readied for blue side`
+		room.sendAnnouncement(message, null, colors.blue, "bold")
+	} else if (player.team == 0 && match.status == 'pending') {
+		var message = `Can only ready from red or blue`
+		room.sendAnnouncement(message, player.id, colors.red)
+	} else {
+		var message = `Can only ready when match is pending ready`
+		room.sendAnnouncement(message, player.id, colors.red)
+	}
+
+	if (match.confirmRed == true && match.confirmBlue == true) {
+		match.status = true;
 		matchHandler();
 	}
 	return false
 }
 
-function swapTeams() {
+function clearTeams() {
 	players = room.getPlayerList();
 	for (i = 0; i < players.length; i++) {
 		room.setPlayerTeam(players[i].id, 0);
@@ -237,7 +306,7 @@ function swapTeams() {
 
 
 function matchHandler() {
-	switch (half) {
+	switch (match.half) {
 		case 0:
 			startFirstHalf();
 			break;
@@ -250,115 +319,114 @@ function matchHandler() {
 	}
 }
 
+//TODO set variables for different half time limits and maps in plugin configuration
 function startFirstHalf() {
-	half = 1;
+	match.half = 1;
 	room.setScoreLimit(0);
-	room.setTimeLimit(1);
-	room.setDefaultStadium("Classic");
+	room.setTimeLimit(7);
+	room.setDefaultStadium("Big Easy");
 	var message = `First Half Started!`
 	room.sendAnnouncement(message, null, colors.gold);
 	room.startGame();
 }
 
 function startSecondHalf() {
-	half = 2;
+	match.half = 2;
 	room.setScoreLimit(0);
-	room.setTimeLimit(1);
-	room.setDefaultStadium("Classic");
+	room.setTimeLimit(7);
+	room.setDefaultStadium("Big Easy");
 	var message = `Second Half Started!`
 	room.sendAnnouncement(message, null, colors.gold);
 	room.startGame();
 }
 function startOvertime() {
-	half = 3;
+	match.half = 3;
 	room.setScoreLimit(1);
 	room.setTimeLimit(0);
-	room.setDefaultStadium("Classic");
+	room.setDefaultStadium("Big Easy");
 	var message = `Overtime Started!`
 	room.sendAnnouncement(message, null, colors.gold);
 	room.startGame();
 }
 
 function endFirstHalf() {
-	swapTeams();
-	confirmRed = false;
-	confirmBlue = false;
-	matchStatus = "pending"
+	clearTeams();
+	match.confirmRed = false;
+	match.confirmBlue = false;
+	match.status = "pending"
 	var message = `First Half is over!  Score is ${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}`
-	var message2 = `Type !confirm to begin second half`
+	var message2 = `${gameData.TeamTwo} starts Second Half on Red.  Type !ready to begin second half`
 	room.sendAnnouncement(message, null, colors.gold);
 	room.sendAnnouncement(message2, null, colors.gold, "bold");
 }
 
 
 function endSecondHalf() {
-	var message = `Second Half is over!  Score is tied ${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}` 
+	var message = `Second Half is over!  Score is tied ${gameData.TeamOne} ${gameData.TeamOneScore} - ${gameData.TeamTwoScore} ${gameData.TeamTwo}`
 	room.sendAnnouncement(message, null, colors.gold);
 	//flip a coin to decide who is red
 	if (Math.random() < 0.50) {
 		overtimeRed = 2;
-		message = `${gameData.TeamTwo} starts overtime on Red.`;
+		message = `${gameData.TeamTwo} starts OT on Red.`
 	} else {
 		overtimeRed = 1;
-		message = `${gameData.TeamOne} starts overtime on Red.`
+		message = `${gameData.TeamOne} starts OT on Red.`
 	}
-	swapTeams();
+	clearTeams();
 	room.sendAnnouncement(message, null, colors.gold);
-	message = `Type !confirm to begin overtime`
+	message = `Type !ready to begin overtime`
 	room.sendAnnouncement(message, null, colors.gold, "bold");
-	confirmRed = false;
-	confirmBlue = false;
-	matchStatus = "pending";
+	match.confirmRed = false;
+	match.confirmBlue = false;
+	match.status = "pending";
 }
 
 function clearMatch() {
-	matchStatus = false;
-	confirmBlue = false;
-	confirmRed = false;
+	match.status = false;
+	match.confirmRed = false;
+	match.confirmBlue = false;
+	match.half = 0;
+	match.overtimeRed = null;
+	match.forfeit = false;
 	for (var x in gameData) if (gameData.hasOwnProperty(x)) delete gameData[x];
-	half = 0;
 }
 
 room.onCommand_forfeit = (player) => {
-	if (matchStatus !== true) {
+	if (match.status !== true) {
 		var message = `Can only forfeit a match while game is in progress.  If halftime, start the next half and then try again.`
-		room.sendAnnouncement(message, null, colors.id);
+		room.sendAnnouncement(message, null, colors.red);
+		return false;
+	} else if (player.team == 0) {
+		var message = `Can only forfeit from red or blue side`
+		room.sendAnnouncement(message, players.id, colors.red)
 		return false;
     }
 
-	if (half == 1 && player.team == 1) {
-		message = `${gameData.TeamOne} ${player.name} has forfeited the game.`
-		gameData.matchResult = 0;
-	} else if (half == 2 && player.team == 2) {
-		message = `${gameData.TeamOne} ${player.name} has forfeited the game.`
-		gameData.matchResult = 0;
-	} else if (half == 3 && player.team == 1 && overtimeRed == 1) {
+	if (match.half == player.team || (player.team == overtimeRed)) {
 		message = `${gameData.TeamOne} ${player.name} has forfeited the game.`
 		gameData.matchResult = 0;
 	} else {
 		message = `${gameData.TeamTwo} ${player.name} has forfeited the game.`
 		gameData.matchResult = 1;
 	}
+	room.sendAnnouncement(message, null, colors.gold, "bold");
 
-	room.sendAnnouncement(message, null, colors.gold);
-
-	forfeit = true;
+	match.forfeit = true;
 	gameData.forfeit = player.name;
-	gameData.half = half;
+	gameData.half = match.half;
 	var scores = room.getScores();
 	gameData.time = scores.time;
 	room.stopGame();
-
+	gameData.formtype = "forfeit-match";
 	sendMatchData("Match Reporter", gameData);
 	clearMatch();
-	
-}
 
+}
 
 room.onGameTick = () => {
 	let scores = room.getScores();
-	if (matchStatus == true && scores.time >= scores.timeLimit && half != 3) {
+	if (match.status == true && scores.time >= scores.timeLimit && match.half != 3) {
 		room.stopGame();
 		halfHandler();
-    }
+	}
 }
