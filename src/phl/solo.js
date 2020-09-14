@@ -90,7 +90,6 @@ room.onTeamVictory = () => {
         matchData.blue = scores.blue;
         matchData.formtype = "solo-ladder-match";
         sendMatchData("Solo Ladder Match Report", matchData);
-        room.sendAnnouncement(JSON.stringify(matchData));
         cleanUp();
     }
 };
