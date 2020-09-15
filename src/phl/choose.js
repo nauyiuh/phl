@@ -32,7 +32,6 @@ var red = [];
 var blue = [];
 var result = 0;
 var teamSize = 0;
-//var timerDuration = room.getConfig().configTimer
 var expiredTimer = 0;
 var setTimer;  
 var picking;
@@ -89,11 +88,10 @@ room.onGameStop = () => {
         case 4:
             var players = room.getPlayerList();
             if (players.length < 12) {
-                var message = "[BOT] Not enough players for dynasty, assigning random captains to shuffle teams";
+                var message = "[BOT] Not enough players for dynasty";
                 room.sendAnnouncement(message, null, colors.red);
                 twoCapVictory();
             } else {
-                var message = "[BOT] Enough players for dynasty"
                 room.sendAnnouncement(message, null, colors.red);
                 dynastyVictory(result);
             }
@@ -124,13 +122,10 @@ function dynastyVictory(result) {
             room.setPlayerTeam(players[i].id, 0);
         }
     }  
-    //set cap, call setPick
-    var nextCap = specs[0]
 
-    room.setPlayerTeam(nextCap, result);
-    picking = nextCap;
-    setPick(nextCap);
-
+    picking = specs[0]
+    room.setPlayerTeam(picking, result);
+    setTimeout(function () { setPick(picking); }, 100);
 }
 
 function twoCapVictory() {
@@ -189,6 +184,26 @@ function clearTimer() {
     expiredTimer = 0;
 }
 
+room.onPlayerChat = (player, arg) => {
+    if (arg.charAt(0) == "@" && player.id == picking) {
+        pickPlayer = arg.trim().replace(/_/g, " ").substring(1);
+        var players = room.getPlayerList();
+        var findPlayer = players.filter(element => element.name == pickPlayer);
+        if ((findPlayer[0]) && (findPlayer[0].team == 0)) {
+            var team = (player.team == 1) ? "red" : "blue";
+            var message = `[BOT] ${findPlayer[0].name} has been picked by ${team}`
+            room.sendAnnouncement(message, null, colors.gold);
+            room.setPlayerTeam(findPlayer[0].id, player.team);
+            clearTimer();
+            setTimeout(function () { nextPickHandler(); }, 100);
+        } else {
+            message = `[BOT]Couldn't find that ${pickPlayer} on specs. Trying picking them by using !pick # (ex. !pick 1)`
+            room.sendAnnouncement(message, player.id, colors.red);
+            listSpecs(player.id);
+        }
+    }
+}
+
 room.onCommand_pick = (player, args) => {
     if (player.id != picking) {
         var message = "It's not your turn to pick";
@@ -215,7 +230,7 @@ room.onCommand_pick = (player, args) => {
                 clearTimer();
                 setTimeout(function () { nextPickHandler(); }, 100);
             } else {
-                var message = `[BOT] INVALID ENTRY. PLEASE PICK AGAIN`
+                var message = `[BOT] Invalid Entry.  Please try again`
                 room.sendAnnouncement(message, player.id, colors.red); 
                 listSpecs(player.id);
             }
@@ -253,6 +268,7 @@ function nextPickHandler() {
         getMap();
         room.startGame();
         room.pauseGame(false);
+        picking = 0;
         return false;
     }
 
@@ -276,7 +292,6 @@ room.onPlayerJoin = (player) => {
     }
 }
 
-//on player leave, remove player from specs/red/blue
 room.onPlayerLeave = (player) => {
 
     removePlayerFromArrays(player.id);
@@ -285,7 +300,6 @@ room.onPlayerLeave = (player) => {
     if (player.team > 0 && (room.getScores)) {
         room.pauseGame(true);
         setTimeout(function () { nextPickHandler(); }, 100);
-        //player was on a team, we might need to pause/pick?
     }
 
     if (teamSize == 0) {
@@ -350,7 +364,7 @@ room.onPlayerTeamChange = (player) => {
 
 function listSpecs(player) {
     var captain = room.getPlayer(player);
-    var message = `[BOT] Please pick from the following list of player by typing !pick #`
+    var message = `[BOT] Please pick from the following list of player by @ing them or typing !pick # (example: !pick 1)`
     var message2 = ''
     for (i = 0; i < specs.length; i++) {
         var player = room.getPlayer(specs[i]);

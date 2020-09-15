@@ -101,7 +101,6 @@ room.onGameStop = () => {
         matchData.blue = manualBlueScore;
         matchData.formtype = "solo-ladder-manual"
         sendMatchData("Manual Report", matchData);
-        room.sendAnnouncement(JSON.stringify(matchData));
         cleanUp();
     }
 };
