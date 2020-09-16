@@ -1,6 +1,6 @@
 /**
- * This plugin enforces one nickname per auth and conn.
- *
+ * This plugin enforces one nickname per auth
+ *  removed checking conn to help people who share a connection
  */
 
 var room = HBInit();
@@ -25,8 +25,6 @@ room.pluginSpec = {
 
 // Maps auth -> nick
 const auths = {};
-// Maps conn -> nick
-const conns = {};
 
 //
 // Event handlers
@@ -41,8 +39,7 @@ const conns = {};
  */
 
 function onPlayerJoinHandler(player) {
-    const oldName = auths[player.auth] !== undefined ? auths[player.auth] :
-        conns[player.conn] !== undefined ? conns[player.conn] : player.name;
+    const oldName = auths[player.auth] !== undefined ? auths[player.auth] : player.name;
     if (oldName !== player.name) {
         setTimeout(function () { room.kickPlayer(player.id, `Re-join as ${oldName}`); }, 500);
         return false;
@@ -60,7 +57,6 @@ function onPlayerJoinHandler(player) {
     
 
     auths[player.auth] = player.name;
-    conns[player.conn] = player.name;
     var message = `[BOT] Registered as ${player.name}.  If you'd like to change your name you will have to contact an admin.`
     room.sendAnnouncement(message, player.id)
 }
@@ -73,30 +69,25 @@ room.onCommand_clear = (player, args) => {
 
     playerName = args.slice(1).join(" ");
     var deleteAuth = Object.keys(auths).find(key => auths[key] === playerName);
-    var deleteConn = Object.keys(conns).find(key => conns[key] === playerName);
 
     delete auths[deleteAuth];
-    delete conns[deleteConn];
 
     var message1 = `[BOT] ${playerName} (case-sensitive) being deleted from object. If below returns undefined the player was not found. `
     var message2 = `[BOT] ${deleteAuth} removed from object`
-    var message3 = `[BOT] ${deleteConn} removed from object`
     room.sendAnnouncement(message1, player.id)
     room.sendAnnouncement(message2, player.id)
-    room.sendAnnouncement(message3, player.id)
     return false;
 }
 
 
 function onPersistHandler() {
-    return { auths, conns };
+    return { auths};
 }
 
 function onRestoreHandler(data) {
     if (data === undefined) return;
 
     Object.assign(auths, data.auths || {});
-    Object.assign(conns, data.conns || {});
 }
 
 //

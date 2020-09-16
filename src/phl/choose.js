@@ -30,12 +30,16 @@ var eighty = `{ "name" : "Big Easy 80%ball", "width" : 600, "height" : 270, "spa
 var specs = [];
 var red = [];
 var blue = [];
+var rebootList = [];
 var result = 0;
 var teamSize = 0;
 var expiredTimer = 0;
 var setTimer;  
 var picking;
 var ballSize;
+var rebootTimer = 0;
+var quorum;
+var rebootInterval;
 
 //on team victory, remember who won for onGameStop handler
 room.onTeamVictory = (scores) => {
@@ -79,8 +83,14 @@ room.onCommand_ballSize = (player, args) => {
 
 room.onGameStop = () => {
     if (result == 0) {
-        var message = "[BOT] Game was stopped by Admin.  Auto team pick disabled for this round, select teams manually."
+        var message = "[BOT] Game was stopped by Admin.  Auto team pick disabled for this round, select teams manually.  If the room is broken type !reboot."
         room.sendAnnouncement(message, null, colors.red, "bold")
+        return false;
+    }
+
+    if (result == -1) {
+        var message = `[BOT] Room rebooting.  Setting new captains`
+        room.sendAnnouncement(message, null, colors.gold)
         return false;
     }
 
@@ -284,11 +294,17 @@ function setPick(playerId) {
 
 //on player join, add player to specs
 room.onPlayerJoin = (player) => {
+    var message = `Welcome, ${player.name}.  This room is automatically run.  In the event that the automatic captain and picking features fail, type !reboot to initiate a vote to reboot the room.`
+    room.sendAnnouncement(message, player.id, colors.gold);
     specs.push(player.id);
     var detectStart = teamSize
     updateTeamSize();
     if (detectStart == 0 && teamSize != 0) {
         twoCapVictory();
+    }
+    if (teamSize == 0) {
+        message = `[BOT] There's not enough players to play.  Waiting for more players (minimum 4 to start)`
+        room.sendAnnouncement(message, null, colors.red);
     }
 }
 
@@ -307,7 +323,7 @@ room.onPlayerLeave = (player) => {
         for (i = 0; i < players.length; i++) {
             room.setPlayerTeam(players[i].id, 0);
         }
-        var message = `[BOT] There aren't enough players in the room to play.`
+        var message = `[BOT] There's not enough players to play.  Waiting for more players (minimum 4 to start)`
         room.sendAnnouncement(message, null, colors.red)
         result = 3;
         room.stopGame();
@@ -373,6 +389,71 @@ function listSpecs(player) {
     room.sendAnnouncement(message, captain.id, colors.gold, "bold", 2);
     room.sendAnnouncement(message2, captain.id, colors.gold);
 }
+
+
+
+room.onCommand_reboot = (player) => {
+    if (rebootTimer == 0) {
+        rebootList.push(player.name);
+        setRebootTimer(player.name);
+    } else {
+        if (rebootList.includes(player.name)) {
+            var message = `[BOT] ${player.name}, you've already voted to reboot the system.`
+            room.sendAnnouncement(message, player.id, colors.red);
+        } else {
+            rebootList.push(player.name);
+            var message = `[BOT] ${player.name} has voted to reboot the system.`
+            room.sendAnnouncement(message, null, colors.red);
+        }
+        if (rebootList.length >= quorum) {
+            rebootRoom();
+        }
+    }
+}
+
+
+function setRebootTimer(playerName) {
+    var players = room.getPlayerList();
+    quorum = Math.floor((players.length - 1) * 0.667);
+    var message = `[BOT] ${playerName} has voted to reboot the system.  ${quorum} votes in the next 30 seconds are required to pass.  Type !reboot to vote to reboot.`
+    room.sendAnnouncement(message, null, colors.red, "bold", 2);
+    rebootTimer = 1;
+    rebootInterval = setInterval(resetRebootTimer, 30000);
+}
+
+function resetRebootTimer() {
+    //if reboottimer expires, then clear rebootList and unset the timer
+    var message = `[BOT] Reboot vote failed.`
+    room.sendAnnouncement(message, null, colors.red, "bold", 2);
+    rebootList.splice(0, rebootList.length);
+    clearInterval(rebootInterval);
+    rebootTimer = 0;
+}
+
+function rebootRoom() {
+    //reboot the room incase things break
+    var message = `The room has voted to reboot the choose system.`
+    room.sendAnnouncement(message, null, colors.red, "bold"); 
+
+    // picking = 0 -> clear timers -> start game -> set result to 0 -> stop game -> twocap 
+    quorum = 99;
+    clearInterval(rebootInterval);
+    rebootTimer = 0;
+    rebootList.splice(0,rebootList.length)
+    picking = 0;
+    clearTimer();
+    result = -1;
+    room.stopGame();    
+
+    if (teamSize > 0) {
+        twoCapVictory();
+    } else {
+        var message = "[BOT] There's not enough players to play.  Waiting for more players (minimum 4 to start)";
+        room.sendAnnouncement(message, null, colors.red);
+    }
+}
+
+
 
 function getMap() {
     switch (teamSize) {
