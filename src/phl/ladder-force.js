@@ -1,6 +1,6 @@
 /**
  * This plugin enforces one nickname per auth
- *  removed checking conn to help people who share a connection
+ * 
  */
 
 var room = HBInit();
@@ -40,12 +40,14 @@ const auths = {};
 
 function onPlayerJoinHandler(player) {
     const oldName = auths[player.auth] !== undefined ? auths[player.auth] : player.name;
+
+    /*
+     * commented out to allow player to alias.  kept other check so that names are protected by their auth for ladder integrity.
     if (oldName !== player.name) {
         setTimeout(function () { room.kickPlayer(player.id, `Re-join as ${oldName}`); }, 500);
         return false;
     }
-
-    
+    */
     var exists = Object.values(auths).includes(player.name)
     if (exists) {
         var checkAuth = Object.keys(auths).find(key => auths[key] === player.name);
@@ -55,10 +57,7 @@ function onPlayerJoinHandler(player) {
         }
     }
     
-
     auths[player.auth] = player.name;
-    var message = `[BOT] Registered as ${player.name}.  If you'd like to change your name you will have to contact an admin.`
-    room.sendAnnouncement(message, player.id)
 }
 
 room.onCommand_clear = (player, args) => {
@@ -93,7 +92,6 @@ function onRestoreHandler(data) {
 //
 // Exports
 //
-
 room.onPlayerJoin = onPlayerJoinHandler;
 room.onPersist = onPersistHandler;
 room.onRestore = onRestoreHandler;
