@@ -29,7 +29,7 @@ var manualRedScore = 0;
 var manualBlueScore = 0;
 
 room.onPlayerJoin = (player) => {
-    var message1 = "Welcome to the SPHB Elo room.  Match data from 4v4 matches on this server will be sent to a google spreadsheet"
+    var message1 = "welcome to buffon hot huge room.  player records located on link below.  type !link to get a new link."
     var message2 = "https://docs.google.com/spreadsheets/d/117Zt6KILkA909JhajGcrYM9Vcel6It-5tPrWI54cvsk/"
     room.sendAnnouncement(message1, player.id, colors.gold);
     room.sendAnnouncement(message2, player.id, colors.gold);
